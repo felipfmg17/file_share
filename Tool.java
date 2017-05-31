@@ -17,9 +17,7 @@ public class Tool{
     /* Convert an array of 4 bytes into an integer */
 	public static int intValue(byte[] b) {
         int n = 0;
-        for (int i = 0; i < 4; i++) {
-            n = (n << 8) | (b[i] & (int) 255);
-        }
+        for (int i = 0; i < 4; i++) {   n = (n << 8) | (b[i] & (int) 255); }
         return n;
     }
 
@@ -32,20 +30,8 @@ public class Tool{
                 out.write(buf, 0, b);
                 out.flush();
                 n -= b;
-            }else{
-                break;
-            }
-            if (n == 0)
-                break;
-        }
-        out.flush();
-    }
-
-    public static void flow(InputStream in, OutputStream out) throws IOException{
-        byte[] buf = new byte[64 * 1024];
-        int b;
-        while (  (b = in.read(buf) ) >= 0) {
-            out.write(buf,0,b);
+            }else{   break; }
+            if (n == 0)   break;
         }
         out.flush();
     }

@@ -3,15 +3,32 @@ import java.util.*;
 import java.io.*;
 
 
+
+/*
+
+FileManager object creates a service for  sending files
+just create and object and call listen() method to start 
+the service, you have to provide de path of the directory which
+contains the files to be transmitted, and the port of the
+socket you want to use
+
+
+The class provides a static method for consume the service
+called requestFile(), just indiceate de ip and port of the server,
+the file name you request, and the path of a local directory
+where the file is to be storaged
+
+*/
+
 public class FileManager{
-	public static final int MAX_SIZE=1300;
-	public static final int FILE_GET = 0;
+	public static final int MAX_SIZE=1300; // size of datagram packet
+	public static final int FILE_GET = 0; 
 	public static final int FILE_DOESNT_EXIST = 1;
 	public static final int FILE_GET_ANSWER = 2;
-	public static final int BUF_SIZE = 1024;
-	public static final int NAME_SIZE = 64;
-	public static final int TIMEOUT = 1000;
-	public static final int REPS = 7;
+	public static final int BUF_SIZE = 1024; // size of message buffer
+	public static final int NAME_SIZE = 64; // size of buffer for file name in message
+	public static final int TIMEOUT = 1000; // used for SoTimeout of Datagramsocket
+	public static final int REPS = 7; // max number of repeitions packet if the message is not responded
 
 	DatagramSocket soc;
 	File path;
@@ -51,7 +68,7 @@ public class FileManager{
 		}
 	}
 
-	public static int requestFileBytes(String ip, int port, String file_name, FileOutputStream out, int offset, DatagramSocket soc) throws IOException {
+	private static int requestFileBytes(String ip, int port, String file_name, FileOutputStream out, int offset, DatagramSocket soc) throws IOException {
 		Message msg = Message.requestMessage(file_name, offset);
 		byte[] buf = msg.getBytes();
 		DatagramPacket pack = new DatagramPacket(buf, buf.length, InetAddress.getByName(ip), port); // paquete con la peticion
@@ -67,8 +84,7 @@ public class FileManager{
 			}
 			Message nmsg = new Message(npack.getData());
 			if(nmsg.code==FILE_DOESNT_EXIST){
-				count--;
-				continue;
+				return -1;
 			}
 			byte[] data = nmsg.buf;
 			out.write(data,0,nmsg.size);
