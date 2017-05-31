@@ -10,7 +10,7 @@ public class FileManager{
 	public static final int FILE_GET_ANSWER = 2;
 	public static final int BUF_SIZE = 1024;
 	public static final int NAME_SIZE = 64;
-	public static final int TIMEOUT = 500;
+	public static final int TIMEOUT = 1000;
 	public static final int REPS = 7;
 
 	DatagramSocket soc;
@@ -26,13 +26,20 @@ public class FileManager{
 		while(true){
 			soc.receive(pack);
 			Message msg = new Message(pack.getData());
+			System.out.println(msg.toString());
 			if(msg.code==FILE_GET){
 				File f = new File(path, new String(msg.name,0,msg.name_n));
 				Message nmsg;
 				if(f.exists()){
 					FileInputStream in = new FileInputStream(f);
-					Tool.extract(in,msg.offset);
-					byte[] ans = Tool.extract(in,BUF_SIZE);
+					byte[] ans;
+					if(msg.offset < f.length() ){
+						Tool.extract(in,msg.offset);
+						ans = Tool.extract(in,BUF_SIZE);
+					}else{
+						ans = new byte[0];
+					}				
+					System.out.println("Enviando: " + ans.length + " bytes ");
 					nmsg = Message.answerMessage(ans);
 					in.close();
 				}else{
@@ -59,6 +66,10 @@ public class FileManager{
 				continue;
 			}
 			Message nmsg = new Message(npack.getData());
+			if(nmsg.code==FILE_DOESNT_EXIST){
+				count--;
+				continue;
+			}
 			byte[] data = nmsg.buf;
 			out.write(data,0,nmsg.size);
 			return nmsg.size;
@@ -144,8 +155,17 @@ public class FileManager{
 			bos.write(Tool.getBytes(offset));
 			return bos.toByteArray();
 		}
+
+		public String toString(){
+			String s = "'\n";
+			s += "File name: " + new String(name,0,name_n) + "\n";
+			s += "Offset: " + offset + "\n";
+			return s;
+		}
 	}
 }
+
+
 
 
 

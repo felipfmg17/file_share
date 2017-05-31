@@ -32,8 +32,10 @@ public class Tool{
                 out.write(buf, 0, b);
                 out.flush();
                 n -= b;
+            }else{
+                break;
             }
-            if (n >= 0)
+            if (n == 0)
                 break;
         }
         out.flush();
