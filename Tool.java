@@ -43,4 +43,24 @@ public class Tool{
         out.close();
         return b;
     }
+
+    public static byte[] serialize(Serializable o) throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+        oos.writeObject(o);
+        oos.flush();
+        byte[] b = bos.toByteArray();
+        oos.close();
+        bos.close();
+        return b;
+    }
+
+    public static Object deSerialize(byte[] b) throws IOException, ClassNotFoundException {
+        ByteArrayInputStream bis = new ByteArrayInputStream(b);
+        ObjectInputStream ois = new ObjectInputStream(bis);
+        Object o = ois.readObject();
+        ois.close();
+        bis.close();
+        return o;
+    }
 }

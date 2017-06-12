@@ -3,6 +3,8 @@ import java.util.*;
 import java.io.*;
 
 public class DirectoryScanner{
+	public static final int DELETE_FILE = 0;
+	public static final int CREATE_FILE = 1;
 	File path;
 	Set<String> ori;
 
@@ -20,14 +22,14 @@ public class DirectoryScanner{
 		for(String name: nvo){
 			if(!ori.contains(name)){
 				names.add(name);
-				vals.add(1);
+				vals.add(CREATE_FILE);
 			}
 		}
 
 		for(String name: ori){
 			if(!nvo.contains(name)){
 				names.add(name);
-				vals.add(0);
+				vals.add(DELETE_FILE);
 			}
 		}
 

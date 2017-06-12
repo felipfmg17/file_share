@@ -32,40 +32,73 @@ public class FileManager{
 
 	DatagramSocket soc;
 	File path;
+	Thread th;
+	ExecutorService executor;
 
 	public FileManager(File path, int port) throws SocketException {
 		soc = new DatagramSocket(port);
 		this.path = path;
 	}
 
-	public void listen() throws IOException {
-		DatagramPacket pack = new DatagramPacket(new byte[MAX_SIZE],MAX_SIZE);
-		while(true){
-			soc.receive(pack);
-			Message msg = new Message(pack.getData());
-			System.out.println(msg.toString());
-			if(msg.code==FILE_GET){
-				File f = new File(path, new String(msg.name,0,msg.name_n));
-				Message nmsg;
-				if(f.exists()){
-					FileInputStream in = new FileInputStream(f);
-					byte[] ans;
-					if(msg.offset < f.length() ){
-						Tool.extract(in,msg.offset);
-						ans = Tool.extract(in,BUF_SIZE);
-					}else{
-						ans = new byte[0];
-					}				
-					System.out.println("Enviando: " + ans.length + " bytes ");
-					nmsg = Message.answerMessage(ans);
-					in.close();
+
+
+	public void answerRequest(DatagramPacket pack) throws IOException{
+		Message msg = new Message(pack.getData());
+		System.out.println(msg.toString());
+		if(msg.code==FILE_GET){
+			File f = new File(path, new String(msg.name,0,msg.name_n));
+			Message nmsg;
+			if(f.exists()){
+				FileInputStream in = new FileInputStream(f);
+				byte[] ans;
+				if(msg.offset < f.length() ){
+					Tool.extract(in,msg.offset);
+					ans = Tool.extract(in,BUF_SIZE);
 				}else{
-					nmsg = Message.errorMessage();
+					ans = new byte[0];
+				}				
+				System.out.println("Enviando: " + ans.length + " bytes ");
+				nmsg = Message.answerMessage(ans);
+				in.close();
+			}else{
+				nmsg = Message.errorMessage();
+			}
+			pack.setData(nmsg.getBytes());
+			soc.send(pack);
+		}
+	}
+
+	public void runAnswerRequest(DatagramPacket pack){
+		Runnable task = new Runnable(){
+			public void run(){
+				try{
+					answerRequest(pack);
+				}catch(IOException e){
+					e.printStackTrace();
 				}
-				pack.setData(nmsg.getBytes());
-				soc.send(pack);
 			}
 		}
+		executor.submit(task);
+	}
+
+	public void listen() throws IOException {
+		while(!th.interrupted()){
+			DatagramPacket pack = new DatagramPacket(new byte[MAX_SIZE],MAX_SIZE);
+			soc.receive(pack);
+			runAnswerRequest(pack);
+		}
+	}
+
+	public void start(){
+		Runnable task = new Runnable(){
+			public void run()  {
+				try{ listen();}
+				catch(IOException e){ e.printStackTrace(); };
+			}
+		};
+
+		th = new Thread(task);
+		th.start();
 	}
 
 	private static int requestFileBytes(String ip, int port, String file_name, FileOutputStream out, int offset, DatagramSocket soc) throws IOException {
@@ -93,6 +126,10 @@ public class FileManager{
 		return -1;
 	}
 
+	/*
+		Request the file named "file_name" to the server with the specified ip and port 
+		and is stored in the local directory "path"
+	*/
 	public static boolean requestFile(String ip, int port, String path, String file_name) throws IOException {
 		DatagramSocket soc = new DatagramSocket();
 		soc.setSoTimeout(TIMEOUT);
@@ -106,14 +143,22 @@ public class FileManager{
 			}
 			else if(ans==0){
 				out.close();
+				soc.close();
 				return true;
 			}else{
 				out.close();
 				f.delete();
+				soc.close();
 				break;
 			}
 		}
+		soc.close();
 		return false;
+	}
+
+	public static boolean eraseFile(String path, String file_name) throws IOException {
+		File f = new File(path,file_name);
+		return f.delete();
 	}
 
 	static class Message{
