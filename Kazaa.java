@@ -1,6 +1,7 @@
 import java.net.*;
 import java.util.*;
 import java.io.*;
+import java.util.concurrent.*;
 
 
 
@@ -8,9 +9,10 @@ public class Kazaa{
 	public static final int TIMEOUT = 1000; // used for SoTimeout of Datagramsocket
 	public static final int PACK_SIZE  = 1024;
 	public static final int DIRECTORY_SCANNER_WAIT_TIME = 2000;
+	public static final int FILES_FINDER_WAIT_TIME  = 1000*60*2;
 
 	public static final int PORT_FILE_MANAGER = 4000;
-	public static final int PORT_IP_MANAGER  = 4001;
+	public static final int PORT_DIRECTORY_SERVER  = 4001;
 	public static final int PORT_NOTIFICATION  = 4002;
 
 	public static final int DELETE_FILE = 0;
@@ -34,7 +36,7 @@ public class Kazaa{
 					e.printStackTrace();
 				}
 			}
-		}
+		};
 	}
 
 	public void runRequestFile(String file_name, String server_ip){
@@ -54,9 +56,9 @@ public class Kazaa{
 	public void sendFileNotification(String file_name, int code) throws IOException {
 		DatagramSocket soc = new DatagramSocket();
 		soc.setBroadcast(true);
-		UpdateMessage msg = new UpdateMessage(file_name.getBytes(), file_name.size(), CREATE_FILE );
+		UpdateMessage msg = new UpdateMessage(file_name.getBytes(), file_name.length(), CREATE_FILE );
 		byte[] buf = msg.getBytes();
-		DatagramPacket pack = new DatagramPacket(buf,buf.size(),InetAddress.getByName(broad_cast_ip),PORT_NOTIFICATION );
+		DatagramPacket pack = new DatagramPacket(buf,buf.length,InetAddress.getByName(broad_cast_ip),PORT_NOTIFICATION );
 		soc.send(pack);
 		soc.close();
 	}
@@ -74,7 +76,7 @@ public class Kazaa{
 		executor.submit(task);
 	}
 
-	public void startNotificationService() throws IOExcetion {
+	public void startNotificationService() throws IOException {
 		DatagramSocket soc = new DatagramSocket(PORT_NOTIFICATION);
 		soc.setBroadcast(true);
 		while(true){
@@ -104,14 +106,14 @@ public class Kazaa{
 		executor.submit(task);
 	}
 
-	public void startDirectoryScannerService(){
-		DirectoryScanner directory_scanner  = new DirectoryScanner(path);
+	public void startDirectoryScannerService() throws InterruptedException {
+		DirectoryScanner directory_scanner  = new DirectoryScanner(new File(path));
 		while(true){
 			DirectoryScanner.ChangeList changes = directory_scanner.update();
 			String[] names = changes.names;
 			Integer[] vals = changes.vals;
 			for(int i=0;i<names.length;i++){
-				runSendFileNotification(name[i],vals[i]);
+				runSendFileNotification(names[i],vals[i]);
 			}
 			Thread.sleep(DIRECTORY_SCANNER_WAIT_TIME);
 		}
@@ -127,6 +129,50 @@ public class Kazaa{
 				}
 			}
 		};
+		executor.submit(task);
+	}
+
+	public void requestSeveralFiles(Set<String> files_names, String ip ){
+		Set<String> ori = DirectoryScanner.getFiles(new File(path));
+		for( String name: files_names ){
+			if(!ori.contains(name)){
+				runRequestFile(name,ip);
+			}
+		}
+	}
+
+/* Sirve para pedir todos los archivos que ya existen en algun directorio 
+se llamara al inicio y despues cada minuto */
+	public void startDirectoryServerServiceFinder() throws IOException, SocketException, ClassNotFoundException, InterruptedException {
+		DatagramSocket soc = new DatagramSocket();
+		soc.setBroadcast(true);
+		soc.setSoTimeout(2*TIMEOUT);
+		while(true){
+			DatagramPacket pack = new DatagramPacket(new byte[0],0, InetAddress.getByName(broad_cast_ip), PORT_DIRECTORY_SERVER);
+			soc.send(pack);
+			DatagramPacket npack = new DatagramPacket(new byte[DirectoryServer.PACK_SIZE], PACK_SIZE);
+			try{
+				soc.receive(npack);
+				Set<String> files_names = (Set<String>)Tool.deSerialize(npack.getData());
+				requestSeveralFiles(files_names,npack.getAddress().toString());
+			}catch(IOException e){
+				e.printStackTrace();
+			}
+			Thread.sleep(FILES_FINDER_WAIT_TIME);
+		}
+	}
+
+	public void runStartDirectoryServerServiceFinder() {
+		Runnable task = new Runnable(){
+			public void run(){
+				try{
+					startDirectoryServerServiceFinder();
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+		};
+
 		executor.submit(task);
 	}
 
@@ -147,7 +193,7 @@ public class Kazaa{
 			this.code = code;
 		}
 
-		public UpdateMessage(byte[] bytes){
+		public UpdateMessage(byte[] bytes)   throws IOException {
 			int offset = 0;
 			name = Arrays.copyOfRange(bytes,offset,offset+NAME_SIZE);
 			offset += NAME_SIZE;
@@ -156,11 +202,12 @@ public class Kazaa{
 			code = Tool.intValue(Arrays.copyOfRange(bytes,offset,offset+4));
 		}
 
-		public byte[] getBytes(){
+		public byte[] getBytes() throws IOException {
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
 			bos.write(name);
 			bos.write(Tool.getBytes(name_size));
 			bos.write(Tool.getBytes(code));
+			return bos.toByteArray();
 		}
 
 

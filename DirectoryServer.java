@@ -1,7 +1,9 @@
 import java.net.*;
 import java.util.*;
 import java.io.*;
+import java.util.concurrent.*;
 
+/* Servidor que envia los un Set con el nombre de todos los archivos en la carpeta */
 
 class DirectoryServer{
 	public static final int PACK_SIZE = 1024;
@@ -16,15 +18,17 @@ class DirectoryServer{
 
 
 
-	public DirectoryServer(String path, int port){
+	public DirectoryServer(String path, int port) throws SocketException {
 		this.path = path;
 		soc = new DatagramSocket(port);
 		soc.setBroadcast(true);
+		executor = Executors.newCachedThreadPool();
 	}
 
-	public void answerRequest(DatagramPacket pack){
-		Set<String> file_names = DirectoryScanner.getFiles(path);
-		byte[] buf = Tool.serialize(file_names);
+	public void answerRequest(DatagramPacket pack) throws IOException {
+		Set<String> file_names = DirectoryScanner.getFiles(new File(path));
+		System.out.println(file_names);
+		byte[] buf = Tool.serialize((Serializable)file_names);
 		pack.setData(buf);
 		soc.send(pack);
 	}
@@ -60,12 +64,14 @@ class DirectoryServer{
 					e.printStackTrace();
 				}
 			}
-		}
+		};
 		th = new Thread(task);
 		th.start();
 	}
 
-	public static  Set<String> requestFileNames(String ip, int port){
+
+
+	public static  Set<String> requestFileNames(String ip, int port) throws IOException, SocketException, ClassNotFoundException {
 		DatagramSocket soc = new DatagramSocket();
 		soc.setSoTimeout(TIMEOUT);
 		soc.setBroadcast(true);
@@ -76,17 +82,39 @@ class DirectoryServer{
 		while(count>0){
 			soc.send(pack);
 			try{
+				System.out.println("Enviando peticion de nombres de archivos");
 				soc.receive(npack);
+				System.out.println("Se recibieron " + npack.getLength() + " bytes ");
 			}catch(IOException e){
 				count--;
 				continue;
 			}
 			byte[] buf = npack.getData();
-			file_names = Tool.deSerialize(buf);
+			file_names = (Set<String>)Tool.deSerialize(buf);
 			break;
 		}
 		return file_names;
 
+	}
+
+	public static void clientTest(String ip, int port) throws IOException, SocketException, ClassNotFoundException {
+		Set<String> files = DirectoryServer.requestFileNames(ip,port);
+		System.out.println(files);
+	}
+
+
+	public static void serverTest(int port, String path)  throws IOException, SocketException, ClassNotFoundException {
+		DirectoryServer ds = new DirectoryServer(path, port);
+		ds.start();
+	}
+
+	public static void main(String[] args) throws IOException, SocketException, ClassNotFoundException {
+		int code = Integer.parseInt(args[0]);
+		if(code==0){
+			serverTest(Integer.parseInt(args[1]), args[2]);
+		}else{
+			clientTest(args[1],Integer.parseInt(args[2]));
+		}
 	}
 
 }
