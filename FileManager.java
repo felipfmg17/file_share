@@ -20,6 +20,7 @@ where the file is to be storaged
 
 */
 
+
 public class FileManager{
 	public static final int MAX_SIZE=1300; // size of datagram packet
 	public static final int FILE_GET = 0; 
@@ -28,7 +29,7 @@ public class FileManager{
 	public static final int BUF_SIZE = 1024; // size of message buffer
 	public static final int NAME_SIZE = 64; // size of buffer for file name in message
 	public static final int TIMEOUT = 1000; // used for SoTimeout of Datagramsocket
-	public static final int REPS = 7; // max number of repeitions packet if the message is not responded
+	public static final int REPS = 14; // max number of repeitions packet if the message is not responded
 
 	DatagramSocket soc;
 	File path;
@@ -38,13 +39,14 @@ public class FileManager{
 	public FileManager(File path, int port) throws SocketException {
 		soc = new DatagramSocket(port);
 		this.path = path;
+		executor = Executors.newCachedThreadPool();
 	}
 
-
-
-	public void answerRequest(DatagramPacket pack) throws IOException{
+	private void answerRequest(DatagramPacket pack) throws IOException{
+		DatagramSocket soct = new DatagramSocket();
 		Message msg = new Message(pack.getData());
-		System.out.println(msg.toString());
+		System.out.println("FileManager Server: Peticion de archivo recibida, nombre : " + new String(msg.name,0,msg.name_n));
+		//System.out.println(msg.toString());
 		if(msg.code==FILE_GET){
 			File f = new File(path, new String(msg.name,0,msg.name_n));
 			Message nmsg;
@@ -52,23 +54,27 @@ public class FileManager{
 				FileInputStream in = new FileInputStream(f);
 				byte[] ans;
 				if(msg.offset < f.length() ){
-					Tool.extract(in,msg.offset);
+					//Tool.extract(in,msg.offset);
+					in.skip(msg.offset);
 					ans = Tool.extract(in,BUF_SIZE);
 				}else{
 					ans = new byte[0];
 				}				
-				System.out.println("Enviando: " + ans.length + " bytes ");
+				//System.out.println("FileManager Server: Enviando: " + ans.length + " bytes ");
 				nmsg = Message.answerMessage(ans);
 				in.close();
 			}else{
 				nmsg = Message.errorMessage();
 			}
 			pack.setData(nmsg.getBytes());
-			soc.send(pack);
+			System.out.println("FileManager Server: Respondiendo Peticion ");
+			soct.send(pack);
+			soct.close();
 		}
+
 	}
 
-	public void runAnswerRequest(DatagramPacket pack){
+	private void runAnswerRequest(DatagramPacket pack){
 		Runnable task = new Runnable(){
 			public void run(){
 				try{
@@ -81,9 +87,11 @@ public class FileManager{
 		executor.submit(task);
 	}
 
-	public void listen() throws IOException {
+	private void listen() throws IOException {
+		System.out.println("FileManager Server: iniciado con exito");
 		while(!th.interrupted()){
 			DatagramPacket pack = new DatagramPacket(new byte[MAX_SIZE],MAX_SIZE);
+			System.out.println("FileManager Server: esperando peticion de archivos ... ");
 			soc.receive(pack);
 			runAnswerRequest(pack);
 		}
@@ -101,7 +109,8 @@ public class FileManager{
 		th.start();
 	}
 
-	private static int requestFileBytes(String ip, int port, String file_name, FileOutputStream out, int offset, DatagramSocket soc) throws IOException {
+	public static int requestFileBytes(String ip, int port, String file_name, FileOutputStream out, int offset, DatagramSocket soc) throws IOException {
+		System.out.println("FileManager: pidiendo archivo con nombre: " + file_name );
 		Message msg = Message.requestMessage(file_name, offset);
 		byte[] buf = msg.getBytes();
 		DatagramPacket pack = new DatagramPacket(buf, buf.length, InetAddress.getByName(ip), port); // paquete con la peticion
@@ -126,14 +135,16 @@ public class FileManager{
 		return -1;
 	}
 
-	/*
-		Request the file named "file_name" to the server with the specified ip and port 
-		and is stored in the local directory "path"
-	*/
+	/*	Request the file named "file_name" to the server with the specified ip and port 
+		and is stored in the local directory "path" */
 	public static boolean requestFile(String ip, int port, String path, String file_name) throws IOException {
 		DatagramSocket soc = new DatagramSocket();
 		soc.setSoTimeout(TIMEOUT);
 		File f = new File(path, file_name);
+		if(f.exists()) {
+			System.out.println("FileManager: el archivo ya existe");
+			return false;
+		}
 		FileOutputStream out = new FileOutputStream(f);
 		int offset = 0;
 		while(true){
@@ -144,6 +155,7 @@ public class FileManager{
 			else if(ans==0){
 				out.close();
 				soc.close();
+				System.out.println("FileManager: el archivo " + file_name + " se recibio con exito ");
 				return true;
 			}else{
 				out.close();
@@ -153,6 +165,7 @@ public class FileManager{
 			}
 		}
 		soc.close();
+		System.out.println("FileManager: el archivo " + file_name + " no se pudo recibir " );
 		return false;
 	}
 
@@ -228,18 +241,4 @@ public class FileManager{
 
 
 
-
-
-/*public class FileManager{
-	public static void main(String args[]) throws IOException {
-		byte[] data = {101,102,103};
-		Message msg = new Message(17,"felipe".getBytes(),0,data);
-		byte[] buf = msg.toBytes();
-		System.out.println(buf.length);
-		Message msg2 = new Message(buf);
-		System.out.println(msg2.name_n);
-		System.out.println(msg2.code+" "+ new String(msg2.name,0,msg2.name_n) + " " + msg2.size+" "+msg2.buf.length);
-		System.out.println(msg2.buf[0]+" "+msg.buf[1]+" "+msg.buf[2]);
-	}
-}*/
 

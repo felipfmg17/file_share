@@ -39,7 +39,6 @@ public class DirectoryScanner{
 		return ans;
 	}
 
-
 	public static class ChangeList{
 		public String[] names;
 		public Integer[] vals;
@@ -50,24 +49,9 @@ public class DirectoryScanner{
 			this.names = names.toArray(this.names);
 			this.vals = vals.toArray(this.vals);
 		}
-
 	}
 
 	public static Set<String> getFiles(File path){
 		return new HashSet<String>(Arrays.asList(path.list()));
 	}
-
-
-	public static void main(String[] args){
-		File path = new File(args[0]);
-		DirectoryScanner ds = new DirectoryScanner(path);
-		Scanner sc = new Scanner(System.in);
-		int x = sc.nextInt();
-		DirectoryScanner.ChangeList cl = ds.update();
-		for(int i=0;i<cl.names.length;i++){
-			System.out.println(cl.names[i] + " " + cl.vals[i] );
-		}
-	}
-
-
 }

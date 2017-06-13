@@ -15,6 +15,7 @@ class DirectoryServer{
 	DatagramSocket soc;
 	ExecutorService executor;
 	Thread th;
+	Random rand;
 
 
 
@@ -23,17 +24,23 @@ class DirectoryServer{
 		soc = new DatagramSocket(port);
 		soc.setBroadcast(true);
 		executor = Executors.newCachedThreadPool();
+		rand = new Random();
 	}
 
-	public void answerRequest(DatagramPacket pack) throws IOException {
+	private void answerRequest(DatagramPacket pack) throws IOException, InterruptedException {
+		Thread.sleep((rand.nextInt(5))*TIMEOUT);
+		System.out.println("DirectoryServer: Peticion recibida de " + pack.getAddress().toString().substring(1) );
+		DatagramSocket soc = new DatagramSocket();
 		Set<String> file_names = DirectoryScanner.getFiles(new File(path));
-		System.out.println(file_names);
+		//System.out.println(file_names);
 		byte[] buf = Tool.serialize((Serializable)file_names);
 		pack.setData(buf);
+		System.out.println("DirectoryServer: Respondiendo peticion ");
 		soc.send(pack);
+		soc.close();
 	}
 
-	public void runAnswerRequest(DatagramPacket pack){
+	private void runAnswerRequest(DatagramPacket pack){
 		Runnable task = new Runnable(){
 			public void run(){
 				try{
@@ -46,10 +53,11 @@ class DirectoryServer{
 		executor.submit(task);
 	}
 
-
-	public void listen() throws IOException{
+	private void listen() throws IOException{
+		System.out.println("DirectoryServer: Servidor iniciado con exito ");
 		while(true){
 			DatagramPacket pack = new DatagramPacket(new byte[PACK_SIZE], PACK_SIZE );
+			System.out.println("DirectoryServer: Esperando peticiones ...");
 			soc.receive(pack);
 			runAnswerRequest(pack);
 		}
@@ -106,15 +114,6 @@ class DirectoryServer{
 	public static void serverTest(int port, String path)  throws IOException, SocketException, ClassNotFoundException {
 		DirectoryServer ds = new DirectoryServer(path, port);
 		ds.start();
-	}
-
-	public static void main(String[] args) throws IOException, SocketException, ClassNotFoundException {
-		int code = Integer.parseInt(args[0]);
-		if(code==0){
-			serverTest(Integer.parseInt(args[1]), args[2]);
-		}else{
-			clientTest(args[1],Integer.parseInt(args[2]));
-		}
 	}
 
 }

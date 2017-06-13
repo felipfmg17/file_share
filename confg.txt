@@ -1,4 +1,0 @@
-
-
-path_server:  C:\Users\Usuario\Desktop\file_share\TestOrigin
-path_destination   C:\Users\Usuario\Desktop\file_share\TestDestination
