@@ -63,7 +63,7 @@ public class Kazaa{
 		runStartNotificationService();
 		System.out.println("Iniciando DirectoryScannerService ...");
 		runStartDirectoryScannerService();
-		System.out.println("Iniciando DirectoryScannerServiceFinder ...");
+		System.out.println("Iniciando DirectoryServiceFinder ...");
 		runStartDirectoryServerServiceFinder();
 
 	}

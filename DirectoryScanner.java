@@ -11,7 +11,8 @@ public class DirectoryScanner{
 
 	public DirectoryScanner(File path){
 		this.path = path;
-		ori = getFiles(path);
+		//ori = getFiles(path);
+		ori = new HashSet<String>();
 	}
 
 	public ChangeList update(){
